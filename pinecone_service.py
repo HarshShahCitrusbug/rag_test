@@ -5,6 +5,10 @@ import os
 from pinecone import Pinecone
 from dotenv import load_dotenv
 
+# Local imports here
+from embeddings import open_ai_embeddings
+from utils import convert_text_into_chunks
+
 # Load environment variables
 load_dotenv()
 
@@ -25,6 +29,17 @@ def query_from_pinecone(query: str):
     """
     # Perform the query using Pinecone's query method
     # Get top 5 results, adjust as needed
-    result = index.query(namespace="bhagvat1", top_k=5,
-                         include_values=True, query=query, include_metadata=True)
+    query_embedding = open_ai_embeddings(query)
+    result = index.query(top_k=5, vector=query_embedding,
+                         include_metadata=True)
     return result
+
+
+def upsert_text_to_pinecone(text, index):
+    chunks = convert_text_into_chunks(text)
+    vectors = []
+    for i, chunk in enumerate(chunks):
+        embedding = open_ai_embeddings(chunk)
+        # Store each chunk with a unique ID
+        vectors.append((f"chunk-{i}", embedding, {"text": chunk}))
+    index.upsert(vectors=vectors)

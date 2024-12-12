@@ -1,80 +1,56 @@
 # Third party imports here
 import streamlit as st
-import time
-# Local imports here
-from pinecone_service import query_from_pinecone
+import os
 
+# Local imports here
+from dotenv import load_dotenv
+from pinecone import Pinecone
+
+# Local imports here
+from pinecone_service import query_from_pinecone, upsert_text_to_pinecone
+from utils import get_text_from_docx
+
+load_dotenv()
+
+# Pinecone index
+PINECONE_INDEX = os.getenv("PINECONE_INDEX")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+
+FILE_PATH_1 = "Client 001_CoachingSession_03.12.24.docx"
+FILE_PATH_2 = "Client 001_CoachingSession_10.12.24.docx"
+OPEN_API_KEY = os.getenv("OPENAI_API_KEY")
+
+text_1_embeddings = get_text_from_docx(FILE_PATH_1)
+text_2_embeddings = get_text_from_docx(FILE_PATH_2)
+
+pinecone = Pinecone(api_key=PINECONE_API_KEY)
+index_name = PINECONE_INDEX
+
+
+index = pinecone.Index(index_name)
+
+
+# upsert_text_to_pinecone(text_1_embeddings, index)
+# upsert_text_to_pinecone(text_2_embeddings, index)
 
 # Streamlit App
 def main():
-    """
-    Main function for the Streamlit app.
+    st.title("Vector Search")
 
-    This function displays a title for the app, an input field for the user to enter their query, 
-    and a button to trigger the query. When the button is clicked, it calls the query_from_pinecone function
-    and displays the result in a square container.
+    query = st.text_input("Enter your query:")
 
-    :return: None
-    """
-    if "processing" not in st.session_state:
-        st.session_state["processing"] = False
+    # Add a 'Search' button
+    search_button = st.button("Search")
 
-    if "input_message" not in st.session_state:
-        st.session_state["input_message"] = ""
-
-    if "query_output" not in st.session_state:
-        st.session_state["query_output"] = ""
-
-    def send_action():
-        if st.session_state["processing"]:
-            return
-
-        if not st.session_state["input_message"].strip():
-            st.warning("Query is required.")
-            return
-
-        st.session_state["processing"] = True
-        st.session_state["query_output"] = ""
-
-        # Call the query_from_pinecone function
-        st.session_state["query_output"] = query_from_pinecone(
-            st.session_state["input_message"])
-
-        st.session_state["processing"] = False
-
-    st.title('Query App')
-
-    # Using a form so that Enter triggers submission as well as the button
-    # Query input and button inside the form
-    st.text_input(
-        "Enter your query:",
-        key="input_message",
-        disabled=st.session_state["processing"]
-    )
-    st.button(
-        "Submit", disabled=st.session_state["processing"], on_click=send_action)
-
-    # Display the query output in a square container after submit
-    if st.session_state["query_output"]:
-        with st.container():
-            # Using a square container with a border for the output
-            st.markdown(
-                f'<div style="border: 2px solid black; padding: 20px; border-radius: 10px; width: 100%; max-width: 400px; background-color: #f9f9f9;">'
-                f'<h3>Query Results:</h3>'
-                # Display the query result
-                f'<pre>{st.session_state["query_output"]}</pre>'
-                f'</div>', unsafe_allow_html=True
-            )
+    # Display search results when the button is clicked
+    if search_button and query:
+        search_results = query_from_pinecone(query)
+        if search_results:
+            # Display the matched document text
+            st.write(search_results['matches'][0]['metadata']['text'])
+        else:
+            st.write("No results found")
 
 
 if __name__ == "__main__":
     main()
-
-    # if st.button("Submit"):
-    #     if user_input:
-    #         # Call the Pinecone query function with the user input
-    #         result = query_from_pinecone(user_input)
-    #         st.write("Query Results:")
-    #         st.json(result)  # Display the result in a readable format
-    #     else:
-    #         st.warning("Please enter a query.")
